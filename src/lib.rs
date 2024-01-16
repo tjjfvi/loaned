@@ -1,13 +1,13 @@
+#![doc = include_str!("../README.md")]
+
 mod loanable;
 mod loaned;
 mod loaned_mut;
-mod may_leak;
 mod place;
 
 pub use loanable::*;
 pub use loaned::*;
 pub use loaned_mut::*;
-pub use may_leak::*;
 pub use place::*;
 
 #[cfg(test)]
@@ -27,7 +27,7 @@ mod test {
 
   #[test]
   fn loaned_atomic() {
-    let (r, b) = Loaned::new(MayLeak::new(Box::new(AtomicU32::new(0))));
+    let (r, b) = Loaned::new(Box::new(AtomicU32::new(0)));
     r.fetch_add(1, Ordering::Relaxed);
     b.borrow().fetch_add(2, Ordering::Relaxed);
     assert_eq!(b.load(Ordering::Relaxed), 3);

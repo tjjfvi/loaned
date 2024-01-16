@@ -1,42 +1,40 @@
 use crate::*;
 use std::mem::MaybeUninit;
 
-pub unsafe trait Place<'t, T> {
-  unsafe fn place(&'t mut self, value: MaybeUninit<T>);
+/// The trait underlying `Loaned::place` and `LoanedMut::place`.
+pub trait Place<'t, T: Loanable<'t>> {
+  fn place(&'t mut self, value: LoanedMut<'t, T>);
 }
 
-unsafe impl<'t, T> Place<'t, T> for T {
-  unsafe fn place(&'t mut self, value: MaybeUninit<T>) {
-    let ptr = self as *mut T;
-    ptr.read();
-    (ptr as *mut MaybeUninit<T>).write(value);
+impl<'t, T: Loanable<'t>> Place<'t, T> for T {
+  #[inline]
+  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
+    unsafe {
+      let ptr = self as *mut T;
+      ptr.read();
+      (ptr as *mut MaybeUninit<T>).write(loaned.into_inner());
+    }
   }
 }
 
-unsafe impl<'t, T> Place<'t, MayLeak<T>> for T {
-  unsafe fn place(&'t mut self, value: MaybeUninit<MayLeak<T>>) {
-    self.place(std::mem::transmute_copy::<_, MaybeUninit<T>>(&value))
+impl<'t, T: Loanable<'t>> Place<'t, T> for Option<T> {
+  #[inline]
+  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
+    unsafe {
+      let ptr = self as *mut Option<T>;
+      ptr.read();
+      (ptr as *mut MaybeUninit<Option<T>>).write(_maybe_uninit_some(loaned.into_inner()));
+    }
   }
 }
 
-unsafe impl<'t, T> Place<'t, T> for Option<T> {
-  unsafe fn place(&'t mut self, value: MaybeUninit<T>) {
-    let ptr = self as *mut Option<T>;
-    ptr.read();
-    (ptr as *mut MaybeUninit<Option<T>>).write(_some(value));
-  }
-}
-
-unsafe impl<'t, T> Place<'t, MayLeak<T>> for Option<T> {
-  unsafe fn place(&'t mut self, value: MaybeUninit<MayLeak<T>>) {
-    self.place(std::mem::transmute_copy::<_, MaybeUninit<T>>(&value))
-  }
-}
-
-fn _some<T>(x: MaybeUninit<T>) -> MaybeUninit<Option<T>> {
-  unsafe {
-    std::mem::transmute::<_, fn(MaybeUninit<T>) -> MaybeUninit<Option<T>>>(Some::<T> as fn(_) -> _)(
-      x,
-    )
-  }
+#[inline(always)]
+unsafe fn _maybe_uninit_some<T>(x: MaybeUninit<T>) -> MaybeUninit<Option<T>> {
+  // This is somewhat suspicious but seems to make miri happy.
+  //
+  // We know that `x` is, in some senses, a valid `T` (i.e. it's initialized,
+  // and complies with all the layout requirements of `T`), but we can't use it
+  // as a `T` -- in particular, if `T` is a `Box<U>`, moving the box invalidates
+  // the mutable references we loaned out.
+  std::mem::transmute::<_, fn(MaybeUninit<T>) -> MaybeUninit<Option<T>>>(Some::<T> as fn(_) -> _)(x)
 }
