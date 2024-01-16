@@ -1,12 +1,12 @@
+mod loanable;
 mod loaned;
 mod loaned_mut;
-mod loanee;
 mod may_leak;
 mod place;
 
+pub use loanable::*;
 pub use loaned::*;
 pub use loaned_mut::*;
-pub use loanee::*;
 pub use may_leak::*;
 pub use place::*;
 

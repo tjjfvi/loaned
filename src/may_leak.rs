@@ -29,6 +29,6 @@ impl<'t, T: DerefMut> DerefMut for MayLeak<T> {
   }
 }
 
-unsafe impl<'t, T: Loanee<'t>> Loanee<'t> for MayLeak<T> {
+unsafe impl<'t, T: Loanable<'t>> Loanable<'t> for MayLeak<T> {
   const NEEDS_DROP: bool = false;
 }
