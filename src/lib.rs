@@ -17,7 +17,7 @@ mod test {
 
   #[test]
   fn loaned_mut() {
-    let (r, b) = LoanedMut::new(Box::new(0));
+    let (r, b) = LoanedMut::loan(Box::new(0));
     *r = 1;
     let mut x = Box::new(0);
     b.place(&mut x);
@@ -27,7 +27,7 @@ mod test {
 
   #[test]
   fn loaned_atomic() {
-    let (r, b) = Loaned::new(Box::new(AtomicU32::new(0)));
+    let (r, b) = Loaned::loan(Box::new(AtomicU32::new(0)));
     r.fetch_add(1, Ordering::Relaxed);
     b.borrow().fetch_add(2, Ordering::Relaxed);
     assert_eq!(b.load(Ordering::Relaxed), 3);
@@ -40,7 +40,7 @@ mod test {
 
   #[test]
   fn place_option() {
-    let (r, b) = LoanedMut::new(Box::new(123));
+    let (r, b) = LoanedMut::loan(Box::new(123));
     *r = 1;
     let mut x = None;
     b.place(&mut x);

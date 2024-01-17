@@ -2,11 +2,11 @@ use crate::*;
 use std::mem::MaybeUninit;
 
 /// The trait underlying `Loaned::place` and `LoanedMut::place`.
-pub trait Place<'t, T: Loanable<'t>> {
+pub trait Place<'t, T> {
   fn place(&'t mut self, value: LoanedMut<'t, T>);
 }
 
-impl<'t, T: Loanable<'t>> Place<'t, T> for T {
+impl<'t, T> Place<'t, T> for T {
   #[inline]
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
     unsafe {
@@ -17,7 +17,7 @@ impl<'t, T: Loanable<'t>> Place<'t, T> for T {
   }
 }
 
-impl<'t, T: Loanable<'t>> Place<'t, T> for Option<T> {
+impl<'t, T> Place<'t, T> for Option<T> {
   #[inline]
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
     unsafe {

@@ -30,30 +30,31 @@ use std::{
 /// Otherwise, use `loaned.place(&mut None)` to drop the inner value.
 #[must_use]
 #[repr(transparent)]
-pub struct LoanedMut<'t, T: Loanable<'t>> {
+pub struct LoanedMut<'t, T> {
   /// Invariant: the target of `inner` is mutably borrowed for `'t`, so it may
   /// not be accessed for the duration of `'t`.
   pub(crate) inner: MaybeUninit<T>,
   pub(crate) _contravariant: PhantomData<fn(&'t ())>,
 }
 
-impl<'t, T: Loanable<'t>> LoanedMut<'t, T> {
+impl<'t, T> LoanedMut<'t, T> {
   /// Constructs a `LoanedMut` from a given smart pointer, returning the mutable
   /// borrow along with the loaned pointer.
   #[inline]
-  pub fn new(value: T) -> (&'t mut T::Target, Self)
+  pub fn loan(value: T) -> (&'t mut T::Target, Self)
   where
-    T: DerefMut,
+    T: Loanable<'t> + DerefMut,
   {
     let mut inner = MaybeUninit::new(value);
     let borrow = unsafe { &mut *(&mut **inner.assume_init_mut() as *mut _) };
-    (
-      borrow,
-      LoanedMut {
-        inner,
-        _contravariant: PhantomData,
-      },
-    )
+    (borrow, unsafe { LoanedMut::from_inner(inner) })
+  }
+
+  /// Creates a `LoanedMut` without actually loaning it. If you want to loan it,
+  /// use `LoanedMut::loan`.
+  #[inline(always)]
+  pub fn new(value: T) -> Self {
+    unsafe { LoanedMut::from_inner(MaybeUninit::new(value)) }
   }
 
   /// Inserts the contained smart pointer into a given place. See the `Place`
@@ -77,17 +78,17 @@ impl<'t, T: Loanable<'t>> LoanedMut<'t, T> {
   }
 }
 
-impl<'t, T: Loanable<'t>> From<Loaned<'t, T>> for LoanedMut<'t, T> {
+impl<'t, T> From<Loaned<'t, T>> for LoanedMut<'t, T> {
   #[inline(always)]
   fn from(value: Loaned<'t, T>) -> Self {
     unsafe { LoanedMut::from_inner(value.into_inner()) }
   }
 }
 
-impl<'t, T: Loanable<'t>> Drop for LoanedMut<'t, T> {
+impl<'t, T> Drop for LoanedMut<'t, T> {
   #[cold]
   fn drop(&mut self) {
-    if T::NEEDS_DROP && !std::thread::panicking() {
+    if std::mem::needs_drop::<T>() && !std::thread::panicking() {
       panic!(
         "memory leak: cannot drop `{Self}`
     if leaking is desired, use `ManuallyDrop<{Self}>` or `mem::forget`
@@ -98,8 +99,20 @@ impl<'t, T: Loanable<'t>> Drop for LoanedMut<'t, T> {
   }
 }
 
-impl<'t, T: Loanable<'t>> Debug for LoanedMut<'t, T> {
+impl<'t, T> Debug for LoanedMut<'t, T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "LoanedMut(..)")
+  }
+}
+
+impl<'t, T: Default> Default for LoanedMut<'t, T> {
+  fn default() -> Self {
+    LoanedMut::new(Default::default())
+  }
+}
+
+impl<'t, T> From<T> for LoanedMut<'t, T> {
+  fn from(value: T) -> Self {
+    LoanedMut::new(value)
   }
 }

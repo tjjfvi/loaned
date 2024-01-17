@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-/// The trait for types that can be used with `Loaned` and `LoanedMut`.
+/// The trait for types that can be used with `Loaned::loan` and `LoanedMut::loan`.
 ///
 /// # Safety
 ///
@@ -24,7 +24,7 @@ pub unsafe trait Loanable<'t>: Deref {
   const NEEDS_DROP: bool;
 }
 
-unsafe impl<'t, T> Loanable<'t> for Box<T> {
+unsafe impl<'t, T: ?Sized> Loanable<'t> for Box<T> {
   const NEEDS_DROP: bool = true;
 }
 
@@ -36,19 +36,19 @@ unsafe impl<'t> Loanable<'t> for String {
   const NEEDS_DROP: bool = true;
 }
 
-unsafe impl<'t, T> Loanable<'t> for std::rc::Rc<T> {
+unsafe impl<'t, T: ?Sized> Loanable<'t> for std::rc::Rc<T> {
   const NEEDS_DROP: bool = true;
 }
 
-unsafe impl<'t, T> Loanable<'t> for std::sync::Arc<T> {
+unsafe impl<'t, T: ?Sized> Loanable<'t> for std::sync::Arc<T> {
   const NEEDS_DROP: bool = true;
 }
 
 // The usefulness of this implementation is dubious at best, but it's here for completeness.
-unsafe impl<'t, 'a: 't, T> Loanable<'t> for &'a T {
+unsafe impl<'t, 'a: 't, T: ?Sized> Loanable<'t> for &'a T {
   const NEEDS_DROP: bool = false;
 }
 
-unsafe impl<'t, 'a: 't, T> Loanable<'t> for &'a mut T {
+unsafe impl<'t, 'a: 't, T: ?Sized> Loanable<'t> for &'a mut T {
   const NEEDS_DROP: bool = false;
 }
