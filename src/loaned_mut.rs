@@ -116,3 +116,21 @@ impl<'t, T> From<T> for LoanedMut<'t, T> {
     LoanedMut::new(value)
   }
 }
+
+impl<'t, T> LoanedMut<'t, T> {
+  pub fn aggregate(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i AggregatorMut<'t, 'i>)) -> Self {
+    unsafe {
+      let mut inner = MaybeUninit::new(value);
+      f(inner.assume_init_mut(), &AggregatorMut(PhantomData));
+      LoanedMut::from_inner(inner)
+    }
+  }
+}
+
+pub struct AggregatorMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+
+impl<'t, 'i> AggregatorMut<'t, 'i> {
+  pub fn place<T>(&'i self, loaned: LoanedMut<'t, T>, place: &'i mut impl Place<'i, T>) {
+    place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
+  }
+}
