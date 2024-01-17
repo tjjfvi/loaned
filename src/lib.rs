@@ -10,6 +10,15 @@ pub use loaned::*;
 pub use loaned_mut::*;
 pub use place::*;
 
+#[macro_export]
+macro_rules! take {
+  ($loaned:expr) => {{
+    let mut value = None;
+    $loaned.place(&mut value);
+    value.unwrap()
+  }};
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
@@ -46,5 +55,13 @@ mod test {
     b.place(&mut x);
     *r = 2;
     assert_eq!(x, Some(Box::new(2)));
+  }
+
+  #[test]
+  fn take() {
+    let (r, b) = LoanedMut::loan(Box::new(123));
+    *r = 1;
+    *r = 2;
+    assert_eq!(take!(b), Box::new(2));
   }
 }
