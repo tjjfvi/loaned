@@ -7,37 +7,36 @@ use std::{
   ops::Deref,
 };
 
-/// `Loaned<'t, T>` connotes ownership of a smart pointer `T`, with the caveat
-/// that its target is immutably loaned for `'t` (i.e. something else may hold
-/// an `&'t` reference to the target of this pointer).
+/// `Loaned<'t, T>` connotes ownership of a value `T`, with the caveat that
+/// allocations owned by it are immutably loaned for `'t` (i.e. something else
+/// may hold an `&'t` reference to such allocations).
 ///
-/// Thus, for the duration of `'t`, one cannot mutably access the target of this
-/// pointer. However, unlike `LoanedMut`, one can immutably access the
-/// target.
+/// Thus, for the duration of `'t`, one cannot mutably access this value.
+/// However, unlike `LoanedMut`, one can immutably access it.
 ///
-/// Like `LoanedMut`, one can store this smart pointer somewhere, as long
-/// as its ensured that it won't be used for the duration of `'t`.
+/// One can store this value somewhere with `Loaned::place`, which will ensure
+/// that it cannot be used for the duration of `'t`.
 ///
-/// This can be done with `Loaned::place`, which can store the smart pointer
-/// into an `&'t mut T` (among other things).
+/// Taking the value out of a `LoanedMut` can be done with the `take!` macro,
+/// which will statically ensure that `'t` has expired.
 ///
 /// # Dropping
 ///
-/// The smart pointer held by a `Loaned` can only be dropped once `'t` expires.
-/// Since there is no way in the type system to enforce this, nor any way to
-/// check this at runtime, dropping a `Loaned` panics.
+/// The value held by a `Loaned` can only be dropped once `'t` expires. Since
+/// there is no way in the type system to enforce this, nor any way to check
+/// this at runtime, dropping a `Loaned` panics.
 ///
 /// If leaking is intentional, use a `ManuallyDrop<LoanedMut<'t, T>>`.
 ///
-/// Otherwise, use `loaned.place(&mut None)` to drop the inner value.
-#[must_use]
+/// To drop the inner value, use `drop!(loaned)`, which will statically ensure
+/// that `'t` has expired.
+#[must_use = "dropping a `Loaned` panics; use `loaned::drop!` instead"]
 #[repr(transparent)]
 pub struct Loaned<'t, T> {
   /// Invariant: the target of `inner` is borrowed for `'t`, so it may only be
   /// accessed immutably (not mutably or uniquely) for the duration of `'t`.
   pub(crate) inner: MaybeUninit<T>,
-  // establish contravariance over `'t``
-  pub(crate) __: PhantomData<fn(&'t ())>,
+  pub(crate) _contravariant: PhantomData<fn(&'t ())>,
 }
 
 impl<'t, T> Loaned<'t, T> {
@@ -59,11 +58,14 @@ impl<'t, T> Loaned<'t, T> {
     unsafe { Loaned::from_inner(MaybeUninit::new(value)) }
   }
 
+  /// Stores the contained value into a given place. See the `Place` trait for
+  /// more.
   #[inline(always)]
   pub fn place(self, place: &'t mut impl Place<'t, T>) {
     place.place(self.into())
   }
 
+  /// Borrows the pointee of the value, returning a reference valid for `'t`.
   #[inline(always)]
   pub fn borrow(&self) -> &'t T::Target
   where
@@ -81,7 +83,7 @@ impl<'t, T> Loaned<'t, T> {
   pub(crate) unsafe fn from_inner(inner: MaybeUninit<T>) -> Self {
     Loaned {
       inner,
-      __: PhantomData,
+      _contravariant: PhantomData,
     }
   }
 }
@@ -101,7 +103,7 @@ impl<'t, T> Drop for Loaned<'t, T> {
       panic!(
         "memory leak: cannot drop `{Self}`
     if leaking is desired, use `ManuallyDrop<{Self}>` or `mem::forget`
-    otherwise, use `loaned.place(&mut None)` to drop the inner value",
+    otherwise, use `drop!(loaned)` to drop the inner value",
         Self = std::any::type_name::<Self>()
       )
     }
@@ -165,6 +167,18 @@ impl<'t, T> From<T> for Loaned<'t, T> {
 }
 
 impl<'t, T> Loaned<'t, T> {
+  /// Merges multiple `LoanedMut` values.
+  ///
+  /// # Example
+  /// ```
+  /// use loaned::Loaned;
+  /// let a = Loaned::new(1);
+  /// let b = Loaned::new(2);
+  /// let ab: Loaned<(u32, u32)> = Loaned::aggregate(Default::default(), |ab, agg| {
+  ///   agg.place(a, &mut ab.0);
+  ///   agg.place(b, &mut ab.1);
+  /// });
+  /// ```
   pub fn aggregate(value: T, f: impl for<'i> FnOnce(&'i mut T, Aggregator<'t, 'i>)) -> Self {
     unsafe {
       let mut inner = MaybeUninit::new(value);
@@ -174,9 +188,11 @@ impl<'t, T> Loaned<'t, T> {
   }
 }
 
+/// See `Loaned::aggregate`.
 pub struct Aggregator<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> Aggregator<'t, 'i> {
+  /// See `Loaned::aggregate`.
   pub fn place<T>(loaned: Loaned<'t, T>, place: &'i mut impl Place<'i, T>) {
     place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
   }

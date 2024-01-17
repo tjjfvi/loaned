@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 
 mod loanable;
 mod loaned;
@@ -10,6 +11,8 @@ pub use loaned::*;
 pub use loaned_mut::*;
 pub use place::*;
 
+/// Takes the value from a `Loaned` or `LoanedMut`, statically ensuring that
+/// `'t` is expired.
 #[macro_export]
 macro_rules! take {
   ($loaned:expr) => {{
@@ -19,6 +22,8 @@ macro_rules! take {
   }};
 }
 
+/// Drops the value from a `Loaned` or `LoanedMut`, statically ensuring that
+/// `'t` is expired.
 #[macro_export]
 macro_rules! drop {
   ($loaned:expr) => {{

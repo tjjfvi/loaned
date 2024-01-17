@@ -3,6 +3,7 @@ use std::mem::MaybeUninit;
 
 /// The trait underlying `Loaned::place` and `LoanedMut::place`.
 pub trait Place<'t, T> {
+  #[allow(missing_docs)]
   fn place(&'t mut self, value: LoanedMut<'t, T>);
 }
 

@@ -6,29 +6,29 @@ use std::{
   ops::DerefMut,
 };
 
-/// `LoanedMut<'t, T>` connotes ownership of a smart pointer `T`, with the
-/// caveat that its target is mutably loaned for `'t` (i.e. something else may
-/// hold an `&'t mut` reference to the target of this pointer).
+/// `LoanedMut<'t, T>` connotes ownership of a value `T`, with the caveat that
+/// allocations owned by it are mutably loaned for `'t` (i.e. something else may
+/// hold an `&'t mut` reference to such allocations).
 ///
-/// Thus, for the duration of `'t`, one cannot access the target of this
-/// pointer.
+/// Thus, for the duration of `'t`, one cannot access this value.
 ///
-/// The main thing one *can* do is store this smart pointer somewhere, as long
-/// as its ensured that it won't be used for the duration of `'t`.
+/// One can, however, store this value somewhere with `LoanedMut::place`, which
+/// will ensure that it cannot be used for the duration of `'t`.
 ///
-/// This can be done with `LoanedMut::place`, which can store the smart pointer
-/// into an `&'t mut T` (among other things).
+/// Taking the value out of a `Loaned` can be done with the `take!` macro, which
+/// will statically ensure that `'t` has expired.
 ///
 /// # Dropping
 ///
-/// The smart pointer held by a `LoanedMut` can only be dropped once `'t`
-/// expires. Since there is no way in the type system to enforce this, nor any
-/// way to check this at runtime, dropping a `LoanedMut` panics.
+/// The value held by a `Loaned` can only be dropped once `'t` expires. Since
+/// there is no way in the type system to enforce this, nor any way to check
+/// this at runtime, dropping a `Loaned` panics.
 ///
 /// If leaking is intentional, use a `ManuallyDrop<LoanedMut<'t, T>>`.
 ///
-/// Otherwise, use `loaned.place(&mut None)` to drop the inner value.
-#[must_use]
+/// To drop the inner value, use `drop!(loaned)`, which will statically ensure
+/// that `'t` has expired.
+#[must_use = "dropping a `LoanedMut` panics; use `loaned::drop!` instead"]
 #[repr(transparent)]
 pub struct LoanedMut<'t, T> {
   /// Invariant: the target of `inner` is mutably borrowed for `'t`, so it may
@@ -57,8 +57,8 @@ impl<'t, T> LoanedMut<'t, T> {
     unsafe { LoanedMut::from_inner(MaybeUninit::new(value)) }
   }
 
-  /// Inserts the contained smart pointer into a given place. See the `Place`
-  /// trait for more.
+  /// Stores the contained value into a given place. See the `Place` trait for
+  /// more.
   #[inline(always)]
   pub fn place(self, place: &'t mut impl Place<'t, T>) {
     place.place(self)
@@ -92,7 +92,7 @@ impl<'t, T> Drop for LoanedMut<'t, T> {
       panic!(
         "memory leak: cannot drop `{Self}`
     if leaking is desired, use `ManuallyDrop<{Self}>` or `mem::forget`
-    otherwise, use `loaned.place(&mut None)` to drop the inner value",
+    otherwise, use `drop!(loaned)` to drop the inner value",
         Self = std::any::type_name::<Self>()
       )
     }
@@ -118,6 +118,18 @@ impl<'t, T> From<T> for LoanedMut<'t, T> {
 }
 
 impl<'t, T> LoanedMut<'t, T> {
+  /// Merges multiple `LoanedMut` values.
+  ///
+  /// # Example
+  /// ```
+  /// use loaned::LoanedMut;
+  /// let a = LoanedMut::new(1);
+  /// let b = LoanedMut::new(2);
+  /// let ab: LoanedMut<(u32, u32)> = LoanedMut::aggregate(Default::default(), |ab, agg| {
+  ///   agg.place(a, &mut ab.0);
+  ///   agg.place(b, &mut ab.1);
+  /// });
+  /// ```
   pub fn aggregate(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i AggregatorMut<'t, 'i>)) -> Self {
     unsafe {
       let mut inner = MaybeUninit::new(value);
@@ -127,9 +139,11 @@ impl<'t, T> LoanedMut<'t, T> {
   }
 }
 
+/// See `LoanedMut::aggregate`.
 pub struct AggregatorMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> AggregatorMut<'t, 'i> {
+  /// See `LoanedMut::aggregate`.
   pub fn place<T>(&'i self, loaned: LoanedMut<'t, T>, place: &'i mut impl Place<'i, T>) {
     place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
   }
