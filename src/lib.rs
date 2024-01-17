@@ -19,6 +19,13 @@ macro_rules! take {
   }};
 }
 
+#[macro_export]
+macro_rules! drop {
+  ($loaned:expr) => {{
+    $loaned.place(&mut None);
+  }};
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
