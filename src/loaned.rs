@@ -197,3 +197,22 @@ impl<'t, 'i> Aggregator<'t, 'i> {
     place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
   }
 }
+
+impl<'t, T> From<Box<Loaned<'t, T>>> for Loaned<'t, Box<T>> {
+  fn from(value: Box<Loaned<'t, T>>) -> Self {
+    unsafe { Loaned::new(Box::from_raw(Box::into_raw(value) as *mut _)) }
+  }
+}
+
+impl<'t, T> From<Vec<Loaned<'t, T>>> for Loaned<'t, Vec<T>> {
+  fn from(value: Vec<Loaned<'t, T>>) -> Self {
+    unsafe {
+      let mut value = ManuallyDrop::new(value);
+      Loaned::new(Vec::from_raw_parts(
+        value.as_mut_ptr() as *mut _,
+        value.len(),
+        value.capacity(),
+      ))
+    }
+  }
+}

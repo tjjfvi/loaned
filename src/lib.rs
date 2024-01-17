@@ -89,4 +89,29 @@ mod test {
     *r2 = 2;
     assert_eq!(take!(a), (Box::new(1), Box::new(2)));
   }
+
+  #[test]
+  fn into_box() {
+    let (r, b) = LoanedMut::loan(Box::new(123));
+    *r = 1;
+    let x = LoanedMut::<Box<Box<_>>>::from(Box::new(b));
+    *r = 2;
+    assert_eq!(take!(x), Box::new(Box::new(2)));
+  }
+
+  #[test]
+  fn into_vec() {
+    let (r1, b1) = LoanedMut::loan(Box::new(123));
+    let (r2, b2) = LoanedMut::loan(Box::new(123));
+    let (r3, b3) = LoanedMut::loan(Box::new(123));
+    let mut x = Vec::new();
+    x.push(b1);
+    *r1 = 1;
+    *r2 = 2;
+    x.push(b2);
+    x.push(b3);
+    let x: LoanedMut<Vec<Box<_>>> = x.into();
+    *r3 = 3;
+    assert_eq!(take!(x), vec![Box::new(1), Box::new(2), Box::new(3)]);
+  }
 }
