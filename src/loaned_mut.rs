@@ -41,7 +41,6 @@ impl<'t, T: Loanable<'t>> LoanedMut<'t, T> {
   /// Constructs a `LoanedMut` from a given smart pointer, returning the mutable
   /// borrow along with the loaned pointer.
   #[inline]
-  #[must_use]
   pub fn new(value: T) -> (&'t mut T::Target, Self)
   where
     T: DerefMut,

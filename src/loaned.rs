@@ -29,6 +29,7 @@ use std::{
 /// If leaking is intentional, use a `ManuallyDrop<LoanedMut<'t, T>>`.
 ///
 /// Otherwise, use `loaned.place(&mut None)` to drop the inner value.
+#[must_use]
 #[repr(transparent)]
 pub struct Loaned<'t, T: Loanable<'t>> {
   /// Invariant: the target of `inner` is borrowed for `'t`, so it may only be
