@@ -140,6 +140,7 @@ impl<'t, T> LoanedMut<'t, T> {
 }
 
 /// See `LoanedMut::merge`.
+#[doc(hidden)]
 pub struct MergeMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> MergeMut<'t, 'i> {
@@ -194,6 +195,7 @@ impl<'t, T> LoanedMut<'t, T> {
 }
 
 /// See `LoanedMut::loan_with`.
+#[doc(hidden)]
 pub struct LoanWithMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> LoanWithMut<'t, 'i> {

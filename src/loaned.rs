@@ -189,6 +189,7 @@ impl<'t, T> Loaned<'t, T> {
 }
 
 /// See `Loaned::merge`.
+#[doc(hidden)]
 pub struct Merge<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> Merge<'t, 'i> {
@@ -243,6 +244,7 @@ impl<'t, T> Loaned<'t, T> {
 }
 
 /// See `Loaned::loan_with`.
+#[doc(hidden)]
 pub struct LoanWith<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> LoanWith<'t, 'i> {
