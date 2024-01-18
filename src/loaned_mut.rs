@@ -125,25 +125,25 @@ impl<'t, T> LoanedMut<'t, T> {
   /// use loaned::LoanedMut;
   /// let a = LoanedMut::new(1);
   /// let b = LoanedMut::new(2);
-  /// let ab: LoanedMut<(u32, u32)> = LoanedMut::aggregate(Default::default(), |ab, agg| {
-  ///   agg.place(a, &mut ab.0);
-  ///   agg.place(b, &mut ab.1);
+  /// let ab: LoanedMut<(u32, u32)> = LoanedMut::merge(Default::default(), |ab, m| {
+  ///   m.place(a, &mut ab.0);
+  ///   m.place(b, &mut ab.1);
   /// });
   /// ```
-  pub fn aggregate(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i AggregatorMut<'t, 'i>)) -> Self {
+  pub fn merge(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i MergeMut<'t, 'i>)) -> Self {
     unsafe {
       let mut inner = MaybeUninit::new(value);
-      f(inner.assume_init_mut(), &AggregatorMut(PhantomData));
+      f(inner.assume_init_mut(), &MergeMut(PhantomData));
       LoanedMut::from_inner(inner)
     }
   }
 }
 
-/// See `LoanedMut::aggregate`.
-pub struct AggregatorMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+/// See `LoanedMut::merge`.
+pub struct MergeMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
-impl<'t, 'i> AggregatorMut<'t, 'i> {
-  /// See `LoanedMut::aggregate`.
+impl<'t, 'i> MergeMut<'t, 'i> {
+  /// See `LoanedMut::merge`.
   pub fn place<T>(&'i self, loaned: LoanedMut<'t, T>, place: &'i mut impl Place<'i, T>) {
     place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
   }

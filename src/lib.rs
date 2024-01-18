@@ -78,13 +78,13 @@ mod test {
   }
 
   #[test]
-  fn take_aggregate() {
+  fn take_merge() {
     let (r1, b1) = LoanedMut::loan(Box::new(123));
     let (r2, b2) = LoanedMut::loan(Box::new(123));
     *r1 = 1;
-    let a = LoanedMut::<(Box<i32>, Box<i32>)>::aggregate(Default::default(), |x, agg| {
-      agg.place(b1, &mut x.0);
-      agg.place(b2, &mut x.1);
+    let a = LoanedMut::<(Box<i32>, Box<i32>)>::merge(Default::default(), |x, m| {
+      m.place(b1, &mut x.0);
+      m.place(b2, &mut x.1);
     });
     *r2 = 2;
     assert_eq!(take!(a), (Box::new(1), Box::new(2)));

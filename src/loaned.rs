@@ -174,25 +174,25 @@ impl<'t, T> Loaned<'t, T> {
   /// use loaned::Loaned;
   /// let a = Loaned::new(1);
   /// let b = Loaned::new(2);
-  /// let ab: Loaned<(u32, u32)> = Loaned::aggregate(Default::default(), |ab, agg| {
-  ///   agg.place(a, &mut ab.0);
-  ///   agg.place(b, &mut ab.1);
+  /// let ab: Loaned<(u32, u32)> = Loaned::merge(Default::default(), |ab, m| {
+  ///   m.place(a, &mut ab.0);
+  ///   m.place(b, &mut ab.1);
   /// });
   /// ```
-  pub fn aggregate(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i Aggregator<'t, 'i>)) -> Self {
+  pub fn merge(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i Merge<'t, 'i>)) -> Self {
     unsafe {
       let mut inner = MaybeUninit::new(value);
-      f(inner.assume_init_mut(), &Aggregator(PhantomData));
+      f(inner.assume_init_mut(), &Merge(PhantomData));
       Loaned::from_inner(inner)
     }
   }
 }
 
-/// See `Loaned::aggregate`.
-pub struct Aggregator<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+/// See `Loaned::merge`.
+pub struct Merge<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
-impl<'t, 'i> Aggregator<'t, 'i> {
-  /// See `Loaned::aggregate`.
+impl<'t, 'i> Merge<'t, 'i> {
+  /// See `Loaned::merge`.
   pub fn place<T>(&'i self, loaned: Loaned<'t, T>, place: &'i mut impl Place<'i, T>) {
     place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
   }
