@@ -174,34 +174,34 @@ impl<'t, T> LoanedMut<'t, T> {
   /// # Example
   /// ```
   /// use loaned::LoanedMut;
-  /// let ((a, b), ab) = LoanedMut::loan_multi((Box::new(0), Box::new(0)), |ab, l| {
+  /// let ((a, b), ab) = LoanedMut::loan_with((Box::new(0), Box::new(0)), |ab, l| {
   ///   (l.loan_mut(&mut ab.0), l.loan_mut(&mut ab.1))
   /// });
   /// *a = 1;
   /// *b = 2;
   /// assert_eq!(loaned::take!(ab), (Box::new(1), Box::new(2)));
   /// ```
-  pub fn loan_multi<L>(
+  pub fn loan_with<L>(
     value: T,
-    f: impl for<'i> FnOnce(&'i mut T, &'i MultiLoanerMut<'t, 'i>) -> L,
+    f: impl for<'i> FnOnce(&'i mut T, &'i LoanWithMut<'t, 'i>) -> L,
   ) -> (L, Self) {
     unsafe {
       let mut inner = MaybeUninit::new(value);
-      let loans = f(inner.assume_init_mut(), &MultiLoanerMut(PhantomData));
+      let loans = f(inner.assume_init_mut(), &LoanWithMut(PhantomData));
       (loans, LoanedMut::from_inner(inner))
     }
   }
 }
 
-/// See `LoanedMut::loan_multi`.
-pub struct MultiLoanerMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+/// See `LoanedMut::loan_with`.
+pub struct LoanWithMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
-impl<'t, 'i> MultiLoanerMut<'t, 'i> {
-  /// See `LoanedMut::loan_multi`.
+impl<'t, 'i> LoanWithMut<'t, 'i> {
+  /// See `LoanedMut::loan_with`.
   pub fn loan_mut<T: Loanable<'i> + DerefMut>(&'i self, value: &'i mut T) -> &'t mut T::Target {
     unsafe { &mut *(&mut **value as *mut _) }
   }
-  /// See `LoanedMut::loan_multi`.
+  /// See `LoanedMut::loan_with`.
   pub fn loan<T: Loanable<'i>>(&'i self, value: &'i T) -> &'t T::Target {
     unsafe { &*(&**value as *const _) }
   }

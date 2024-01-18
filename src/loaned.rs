@@ -223,30 +223,30 @@ impl<'t, T> Loaned<'t, T> {
   /// # Example
   /// ```
   /// use loaned::Loaned;
-  /// let ((a, b), ab) = Loaned::loan_multi((Box::new(1), Box::new(2)), |ab, l| {
+  /// let ((a, b), ab) = Loaned::loan_with((Box::new(1), Box::new(2)), |ab, l| {
   ///   (l.loan(&ab.0), l.loan(&ab.1))
   /// });
   /// assert_eq!(*a, 1);
   /// assert_eq!(*b, 2);
   /// assert_eq!(loaned::take!(ab), (Box::new(1), Box::new(2)));
   /// ```
-  pub fn loan_multi<L>(
+  pub fn loan_with<L>(
     value: T,
-    f: impl for<'i> FnOnce(&'i mut T, &'i MultiLoaner<'t, 'i>) -> L,
+    f: impl for<'i> FnOnce(&'i mut T, &'i LoanWith<'t, 'i>) -> L,
   ) -> (L, Self) {
     unsafe {
       let mut inner = MaybeUninit::new(value);
-      let loans = f(inner.assume_init_mut(), &MultiLoaner(PhantomData));
+      let loans = f(inner.assume_init_mut(), &LoanWith(PhantomData));
       (loans, Loaned::from_inner(inner))
     }
   }
 }
 
-/// See `Loaned::loan_multi`.
-pub struct MultiLoaner<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+/// See `Loaned::loan_with`.
+pub struct LoanWith<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
-impl<'t, 'i> MultiLoaner<'t, 'i> {
-  /// See `Loaned::loan_multi`.
+impl<'t, 'i> LoanWith<'t, 'i> {
+  /// See `Loaned::loan_with`.
   pub fn loan<T: Loanable<'i>>(&'i self, value: &'i T) -> &'t T::Target {
     unsafe { &*(&**value as *const _) }
   }
