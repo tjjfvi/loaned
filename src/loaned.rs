@@ -216,3 +216,38 @@ impl<'t, T> From<Vec<Loaned<'t, T>>> for Loaned<'t, Vec<T>> {
     }
   }
 }
+
+impl<'t, T> Loaned<'t, T> {
+  /// Creates a `Loaned` with multiple sub-loans.
+  ///
+  /// # Example
+  /// ```
+  /// use loaned::Loaned;
+  /// let ((a, b), ab) = Loaned::loan_multi((Box::new(1), Box::new(2)), |ab, l| {
+  ///   (l.loan(&ab.0), l.loan(&ab.1))
+  /// });
+  /// assert_eq!(*a, 1);
+  /// assert_eq!(*b, 2);
+  /// assert_eq!(loaned::take!(ab), (Box::new(1), Box::new(2)));
+  /// ```
+  pub fn loan_multi<L>(
+    value: T,
+    f: impl for<'i> FnOnce(&'i mut T, &'i MultiLoaner<'t, 'i>) -> L,
+  ) -> (L, Self) {
+    unsafe {
+      let mut inner = MaybeUninit::new(value);
+      let loans = f(inner.assume_init_mut(), &MultiLoaner(PhantomData));
+      (loans, Loaned::from_inner(inner))
+    }
+  }
+}
+
+/// See `Loaned::loan_multi`.
+pub struct MultiLoaner<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
+
+impl<'t, 'i> MultiLoaner<'t, 'i> {
+  /// See `Loaned::loan_multi`.
+  pub fn loan<T: Loanable<'i>>(&'i self, value: &'i T) -> &'t T::Target {
+    unsafe { &*(&**value as *const _) }
+  }
+}
