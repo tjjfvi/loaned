@@ -1,5 +1,19 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, vec::Vec};
+
+use core::{
+  marker::PhantomData,
+  mem::{self, ManuallyDrop, MaybeUninit},
+  ops::{Deref, DerefMut},
+  ptr,
+};
 
 mod loanable;
 mod loaned;
@@ -31,7 +45,7 @@ macro_rules! drop {
   };
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod test {
   use super::*;
   use std::sync::atomic::{AtomicU32, Ordering};

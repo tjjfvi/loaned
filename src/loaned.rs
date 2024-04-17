@@ -1,10 +1,7 @@
 use crate::*;
-use std::{
+use core::{
   fmt::{Debug, Display},
   hash::Hash,
-  marker::PhantomData,
-  mem::{ManuallyDrop, MaybeUninit},
-  ops::Deref,
 };
 
 /// `Loaned<'t, T>` connotes ownership of a value `T`, with the caveat that
@@ -76,7 +73,7 @@ impl<'t, T> Loaned<'t, T> {
 
   #[inline(always)]
   pub(crate) fn into_inner(self) -> MaybeUninit<T> {
-    unsafe { std::ptr::read(&ManuallyDrop::new(self).inner) }
+    unsafe { ptr::read(&ManuallyDrop::new(self).inner) }
   }
 
   #[inline(always)]
@@ -99,25 +96,26 @@ impl<'t, T> Deref for Loaned<'t, T> {
 impl<'t, T> Drop for Loaned<'t, T> {
   #[cold]
   fn drop(&mut self) {
-    if std::mem::needs_drop::<T>() && !std::thread::panicking() {
+    #[cfg(feature = "std")]
+    if mem::needs_drop::<T>() && !std::thread::panicking() {
       panic!(
         "memory leak: cannot drop `{Self}`
     if leaking is desired, use `ManuallyDrop<{Self}>` or `mem::forget`
     otherwise, use `drop!(loaned)` to drop the inner value",
-        Self = std::any::type_name::<Self>()
+        Self = core::any::type_name::<Self>()
       )
     }
   }
 }
 
 impl<'t, T: Debug> Debug for Loaned<'t, T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_tuple("Loaned").field(&*self).finish()
   }
 }
 
 impl<'t, T: Display> Display for Loaned<'t, T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     (&**self).fmt(f)
   }
 }
@@ -143,19 +141,19 @@ impl<'t, 'u, T: PartialEq<U>, U> PartialEq<Loaned<'u, U>> for Loaned<'t, T> {
 impl<'t, T: Eq> Eq for Loaned<'t, T> {}
 
 impl<'t, 'u, T: PartialOrd<U>, U> PartialOrd<Loaned<'u, U>> for Loaned<'t, T> {
-  fn partial_cmp(&self, other: &Loaned<'u, U>) -> Option<std::cmp::Ordering> {
+  fn partial_cmp(&self, other: &Loaned<'u, U>) -> Option<core::cmp::Ordering> {
     (&**self).partial_cmp(&**other)
   }
 }
 
 impl<'t, T: Ord> Ord for Loaned<'t, T> {
-  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
     (&**self).cmp(&**other)
   }
 }
 
 impl<'t, T: Hash> Hash for Loaned<'t, T> {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+  fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
     (&**self).hash(state);
   }
 }
@@ -199,12 +197,14 @@ impl<'t, 'i> Merge<'t, 'i> {
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<'t, T> From<Box<Loaned<'t, T>>> for Loaned<'t, Box<T>> {
   fn from(value: Box<Loaned<'t, T>>) -> Self {
     unsafe { Loaned::new(Box::from_raw(Box::into_raw(value) as *mut _)) }
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<'t, T> From<Vec<Loaned<'t, T>>> for Loaned<'t, Vec<T>> {
   fn from(value: Vec<Loaned<'t, T>>) -> Self {
     unsafe {

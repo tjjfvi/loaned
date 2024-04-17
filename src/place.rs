@@ -1,5 +1,4 @@
 use crate::*;
-use std::mem::MaybeUninit;
 
 /// The trait underlying `Loaned::place` and `LoanedMut::place`.
 pub trait Place<'t, T> {
@@ -44,5 +43,5 @@ unsafe fn _maybe_uninit_some<T>(x: MaybeUninit<T>) -> MaybeUninit<Option<T>> {
   // and complies with all the layout requirements of `T`), but we can't use it
   // as a `T` -- in particular, if `T` is a `Box<U>`, moving the box invalidates
   // the mutable references we loaned out.
-  std::mem::transmute::<_, fn(MaybeUninit<T>) -> MaybeUninit<Option<T>>>(Some::<T> as fn(_) -> _)(x)
+  mem::transmute::<_, fn(MaybeUninit<T>) -> MaybeUninit<Option<T>>>(Some::<T> as fn(_) -> _)(x)
 }

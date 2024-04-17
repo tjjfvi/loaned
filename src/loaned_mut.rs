@@ -1,10 +1,5 @@
 use crate::*;
-use std::{
-  fmt::Debug,
-  marker::PhantomData,
-  mem::{ManuallyDrop, MaybeUninit},
-  ops::DerefMut,
-};
+use core::fmt::Debug;
 
 /// `LoanedMut<'t, T>` connotes ownership of a value `T`, with the caveat that
 /// allocations owned by it are mutably loaned for `'t` (i.e. something else may
@@ -66,7 +61,7 @@ impl<'t, T> LoanedMut<'t, T> {
 
   #[inline(always)]
   pub(crate) fn into_inner(self) -> MaybeUninit<T> {
-    unsafe { std::ptr::read(&ManuallyDrop::new(self).inner) }
+    unsafe { ptr::read(&ManuallyDrop::new(self).inner) }
   }
 
   #[inline(always)]
@@ -88,19 +83,20 @@ impl<'t, T> From<Loaned<'t, T>> for LoanedMut<'t, T> {
 impl<'t, T> Drop for LoanedMut<'t, T> {
   #[cold]
   fn drop(&mut self) {
-    if std::mem::needs_drop::<T>() && !std::thread::panicking() {
+    #[cfg(feature = "std")]
+    if mem::needs_drop::<T>() && !std::thread::panicking() {
       panic!(
         "memory leak: cannot drop `{Self}`
     if leaking is desired, use `ManuallyDrop<{Self}>` or `mem::forget`
     otherwise, use `drop!(loaned)` to drop the inner value",
-        Self = std::any::type_name::<Self>()
+        Self = core::any::type_name::<Self>()
       )
     }
   }
 }
 
 impl<'t, T> Debug for LoanedMut<'t, T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     write!(f, "LoanedMut(..)")
   }
 }
@@ -150,12 +146,14 @@ impl<'t, 'i> MergeMut<'t, 'i> {
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<'t, T> From<Box<LoanedMut<'t, T>>> for LoanedMut<'t, Box<T>> {
   fn from(value: Box<LoanedMut<'t, T>>) -> Self {
     unsafe { LoanedMut::new(Box::from_raw(Box::into_raw(value) as *mut _)) }
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<'t, T> From<Vec<LoanedMut<'t, T>>> for LoanedMut<'t, Vec<T>> {
   fn from(value: Vec<LoanedMut<'t, T>>) -> Self {
     let mut value = ManuallyDrop::new(value);

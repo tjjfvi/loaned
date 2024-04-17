@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use crate::*;
 
 /// The trait for types that can be used with `Loaned::loan` and `LoanedMut::loan`.
 ///
@@ -16,11 +16,15 @@ use std::ops::Deref;
 /// `Unpin` (i.e. even when `Self::Target: !Unpin`).
 pub unsafe trait Loanable<'t>: Deref {}
 
-unsafe impl<'t, T: ?Sized> Loanable<'t> for Box<T> {}
-unsafe impl<'t, T> Loanable<'t> for Vec<T> {}
-unsafe impl<'t> Loanable<'t> for String {}
-unsafe impl<'t, T: ?Sized> Loanable<'t> for std::rc::Rc<T> {}
-unsafe impl<'t, T: ?Sized> Loanable<'t> for std::sync::Arc<T> {}
+#[cfg(feature = "alloc")]
+mod _alloc {
+  use crate::*;
+  unsafe impl<'t, T: ?Sized> Loanable<'t> for alloc::boxed::Box<T> {}
+  unsafe impl<'t, T> Loanable<'t> for alloc::vec::Vec<T> {}
+  unsafe impl<'t> Loanable<'t> for alloc::string::String {}
+  unsafe impl<'t, T: ?Sized> Loanable<'t> for alloc::rc::Rc<T> {}
+  unsafe impl<'t, T: ?Sized> Loanable<'t> for alloc::sync::Arc<T> {}
+}
 
 // The usefulness of this implementation is dubious at best, but it's here for completeness.
 unsafe impl<'t, 'a: 't, T: ?Sized> Loanable<'t> for &'a T {}
