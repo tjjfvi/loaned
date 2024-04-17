@@ -7,6 +7,13 @@ pub trait Place<'t, T> {
   fn place(&'t mut self, value: LoanedMut<'t, T>);
 }
 
+impl<'t, T> Place<'t, T> for MaybeUninit<T> {
+  #[inline]
+  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
+    *self = loaned.into_inner();
+  }
+}
+
 impl<'t, T> Place<'t, T> for T {
   #[inline]
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {

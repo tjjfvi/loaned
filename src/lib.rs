@@ -16,9 +16,9 @@ pub use place::*;
 #[macro_export]
 macro_rules! take {
   ($loaned:expr) => {{
-    let mut value = None;
+    let mut value = ::core::mem::MaybeUninit::uninit();
     $loaned.place(&mut value);
-    value.unwrap()
+    unsafe { value.assume_init() }
   }};
 }
 
@@ -26,9 +26,9 @@ macro_rules! take {
 /// `'t` is expired.
 #[macro_export]
 macro_rules! drop {
-  ($loaned:expr) => {{
-    $loaned.place(&mut None);
-  }};
+  ($loaned:expr) => {
+    ::core::mem::drop($crate::take!($loaned))
+  };
 }
 
 #[cfg(test)]
