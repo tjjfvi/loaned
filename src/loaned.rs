@@ -133,19 +133,19 @@ impl<'t, T> Drop for Loaned<'t, T> {
 
 impl<'t, T: Debug> Debug for Loaned<'t, T> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_tuple("Loaned").field(&*self).finish()
+    f.debug_tuple("Loaned").field(&**self).finish()
   }
 }
 
 impl<'t, T: Display> Display for Loaned<'t, T> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    (&**self).fmt(f)
+    (**self).fmt(f)
   }
 }
 
 impl<'t, T: Clone> Clone for Loaned<'t, T> {
   fn clone(&self) -> Self {
-    Loaned::new((&**self).clone())
+    Loaned::new((**self).clone())
   }
 }
 
@@ -165,19 +165,19 @@ impl<'t, T: Eq> Eq for Loaned<'t, T> {}
 
 impl<'t, 'u, T: PartialOrd<U>, U> PartialOrd<Loaned<'u, U>> for Loaned<'t, T> {
   fn partial_cmp(&self, other: &Loaned<'u, U>) -> Option<core::cmp::Ordering> {
-    (&**self).partial_cmp(&**other)
+    (**self).partial_cmp(&**other)
   }
 }
 
 impl<'t, T: Ord> Ord for Loaned<'t, T> {
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-    (&**self).cmp(&**other)
+    (**self).cmp(&**other)
   }
 }
 
 impl<'t, T: Hash> Hash for Loaned<'t, T> {
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-    (&**self).hash(state);
+    (**self).hash(state);
   }
 }
 
