@@ -28,7 +28,7 @@ use core::fmt::Debug;
 pub struct LoanedMut<'t, T> {
   /// Invariant: the target of `inner` is mutably borrowed for `'t`, so it may
   /// not be accessed for the duration of `'t`.
-  pub(crate) inner: MaybeUninit<T>,
+  pub(crate) inner: RawLoaned<T>,
   pub(crate) _contravariant: PhantomData<fn(&'t ())>,
 }
 
@@ -40,16 +40,16 @@ impl<'t, T> LoanedMut<'t, T> {
   where
     T: Loanable<'t> + DerefMut,
   {
-    let mut inner = MaybeUninit::new(value);
-    let borrow = unsafe { &mut *(&mut **inner.assume_init_mut() as *mut _) };
-    (borrow, unsafe { LoanedMut::from_inner(inner) })
+    let mut inner = RawLoaned::new(value);
+    let borrow = unsafe { &mut *(&mut **inner.as_mut() as *mut _) };
+    (borrow, unsafe { LoanedMut::from_raw(inner) })
   }
 
   /// Creates a `LoanedMut` without actually loaning it. If you want to loan it,
   /// use `LoanedMut::loan`.
   #[inline(always)]
   pub fn new(value: T) -> Self {
-    unsafe { LoanedMut::from_inner(MaybeUninit::new(value)) }
+    unsafe { LoanedMut::from_raw(RawLoaned::new(value)) }
   }
 
   /// Stores the contained value into a given place. See the `Place` trait for
@@ -60,12 +60,12 @@ impl<'t, T> LoanedMut<'t, T> {
   }
 
   #[inline(always)]
-  pub(crate) fn into_inner(self) -> MaybeUninit<T> {
+  pub(crate) fn into_raw(self) -> RawLoaned<T> {
     unsafe { ptr::read(&ManuallyDrop::new(self).inner) }
   }
 
   #[inline(always)]
-  pub(crate) unsafe fn from_inner(inner: MaybeUninit<T>) -> Self {
+  pub(crate) unsafe fn from_raw(inner: RawLoaned<T>) -> Self {
     LoanedMut {
       inner,
       _contravariant: PhantomData,
@@ -76,7 +76,7 @@ impl<'t, T> LoanedMut<'t, T> {
 impl<'t, T> From<Loaned<'t, T>> for LoanedMut<'t, T> {
   #[inline(always)]
   fn from(value: Loaned<'t, T>) -> Self {
-    unsafe { LoanedMut::from_inner(value.into_inner()) }
+    unsafe { LoanedMut::from_raw(value.into_raw()) }
   }
 }
 
@@ -128,9 +128,9 @@ impl<'t, T> LoanedMut<'t, T> {
   /// ```
   pub fn merge(value: T, f: impl for<'i> FnOnce(&'i mut T, &'i MergeMut<'t, 'i>)) -> Self {
     unsafe {
-      let mut inner = MaybeUninit::new(value);
-      f(inner.assume_init_mut(), &MergeMut(PhantomData));
-      LoanedMut::from_inner(inner)
+      let mut inner = RawLoaned::new(value);
+      f(inner.as_mut(), &MergeMut(PhantomData));
+      LoanedMut::from_raw(inner)
     }
   }
 }
@@ -142,7 +142,7 @@ pub struct MergeMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 impl<'t, 'i> MergeMut<'t, 'i> {
   /// See `LoanedMut::merge`.
   pub fn place<T>(&'i self, loaned: LoanedMut<'t, T>, place: &'i mut impl Place<'i, T>) {
-    place.place(unsafe { LoanedMut::from_inner(loaned.into_inner()) })
+    place.place(unsafe { LoanedMut::from_raw(loaned.into_raw()) })
   }
 }
 
@@ -185,9 +185,9 @@ impl<'t, T> LoanedMut<'t, T> {
     f: impl for<'i> FnOnce(&'i mut T, &'i LoanWithMut<'t, 'i>) -> L,
   ) -> (L, Self) {
     unsafe {
-      let mut inner = MaybeUninit::new(value);
-      let loans = f(inner.assume_init_mut(), &LoanWithMut(PhantomData));
-      (loans, LoanedMut::from_inner(inner))
+      let mut inner = RawLoaned::new(value);
+      let loans = f(inner.as_mut(), &LoanWithMut(PhantomData));
+      (loans, LoanedMut::from_raw(inner))
     }
   }
 }

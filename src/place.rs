@@ -9,7 +9,7 @@ pub trait Place<'t, T> {
 impl<'t, T> Place<'t, T> for MaybeUninit<T> {
   #[inline]
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
-    *self = loaned.into_inner();
+    *self = loaned.into_raw().into();
   }
 }
 
@@ -18,8 +18,8 @@ impl<'t, T> Place<'t, T> for T {
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
     unsafe {
       let ptr = self as *mut T;
-      ptr.read();
-      (ptr as *mut MaybeUninit<T>).write(loaned.into_inner());
+      ptr::drop_in_place(ptr);
+      ptr.cast::<RawLoaned<T>>().write(loaned.into_raw());
     }
   }
 }
@@ -29,8 +29,10 @@ impl<'t, T> Place<'t, T> for Option<T> {
   fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
     unsafe {
       let ptr = self as *mut Option<T>;
-      ptr.read();
-      (ptr as *mut MaybeUninit<Option<T>>).write(_maybe_uninit_some(loaned.into_inner()));
+      ptr::drop_in_place(ptr);
+      ptr
+        .cast::<MaybeUninit<Option<T>>>()
+        .write(_maybe_uninit_some(loaned.into_raw().into()));
     }
   }
 }

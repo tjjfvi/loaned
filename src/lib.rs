@@ -19,11 +19,13 @@ mod loanable;
 mod loaned;
 mod loaned_mut;
 mod place;
+mod raw_loaned;
 
 pub use loanable::*;
 pub use loaned::*;
 pub use loaned_mut::*;
 pub use place::*;
+use raw_loaned::*;
 
 /// Takes the value from a `Loaned` or `LoanedMut`, statically ensuring that
 /// `'t` is expired.
