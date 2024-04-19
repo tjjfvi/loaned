@@ -36,6 +36,29 @@ pub struct Loaned<'t, T> {
   pub(crate) _contravariant: PhantomData<fn(&'t ())>,
 }
 
+/// Like `&T`, `Loaned<T>` is only `Send` if `T` is `Sync`.
+///
+/// Otherwise, code could cause data races:
+///
+/// ```rust,compile_fail E0277
+/// use loaned::Loaned;
+/// use std::cell::Cell;
+/// let x = Loaned::new(Box::new(Cell::new(123)));
+/// let y = x.borrow();
+/// let x = std::thread::scope(|s| {
+///   let h = s.spawn(move || {
+///     x.set(456); // <- unsynchronized write
+///     x
+///   });
+///   y.get(); // // <- unsynchronized read
+///   h.join().unwrap()
+/// });
+/// loaned::drop!(x);
+/// ```
+///
+/// If you need to safely send this value, you can convert it to a `LoanedMut<'t, T>` with `Into`.
+unsafe impl<'t, T: Sync> Send for Loaned<'t, T> {}
+
 impl<'t, T> Loaned<'t, T> {
   /// Constructs a `Loaned` from a given smart pointer, returning the borrow
   /// along with the loaned pointer.
