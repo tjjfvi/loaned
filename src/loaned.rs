@@ -9,12 +9,12 @@ use core::{
 /// may hold an `&'t` reference to such allocations).
 ///
 /// Thus, for the duration of `'t`, one cannot mutably access this value.
-/// However, unlike `LoanedMut`, one can immutably access it.
+/// However, unlike [`LoanedMut`], one can immutably access it.
 ///
 /// One can store this value somewhere with `Loaned::place`, which will ensure
 /// that it cannot be used for the duration of `'t`.
 ///
-/// Taking the value out of a `LoanedMut` can be done with the `take!` macro,
+/// Taking the value out of a [`Loaned`] can be done with the [`take!`] macro,
 /// which will statically ensure that `'t` has expired.
 ///
 /// # Dropping
@@ -23,10 +23,10 @@ use core::{
 /// there is no way in the type system to enforce this, nor any way to check
 /// this at runtime, dropping a `Loaned` panics.
 ///
-/// If leaking is intentional, use a `ManuallyDrop<LoanedMut<'t, T>>`.
+/// If leaking is intentional, use a `ManuallyDrop<Loaned<'t, T>>`.
 ///
-/// To drop the inner value, use `drop!(loaned)`, which will statically ensure
-/// that `'t` has expired.
+/// To drop the inner value, use the [`drop!`] macro, which will statically
+/// ensure that `'t` has expired.
 #[must_use = "dropping a `Loaned` panics; use `loaned::drop!` instead"]
 #[repr(transparent)]
 pub struct Loaned<'t, T> {
@@ -72,17 +72,17 @@ impl<'t, T> Loaned<'t, T> {
   }
 
   /// Creates a `Loaned` without actually loaning it. If you want to loan it,
-  /// use `Loaned::loan` or `Loaned::borrow`.
+  /// use [`Loaned::loan`] or [`Loaned::borrow`].
   #[inline(always)]
   pub fn new(value: T) -> Self {
     unsafe { Loaned::from_raw(RawLoaned::new(value)) }
   }
 
-  /// Stores the contained value into a given place. See the `Place` trait for
+  /// Stores the contained value into a given place. See the [`Place`] trait for
   /// more.
   #[inline(always)]
   pub fn place(self, place: &'t mut impl Place<'t, T>) {
-    place.place(self.into())
+    Place::place(self.into(), place)
   }
 
   /// Borrows the pointee of the value, returning a reference valid for `'t`.
@@ -209,14 +209,14 @@ impl<'t, T> Loaned<'t, T> {
   }
 }
 
-/// See `Loaned::merge`.
+/// See [`Loaned::merge`].
 #[doc(hidden)]
 pub struct Merge<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> Merge<'t, 'i> {
-  /// See `Loaned::merge`.
+  /// See [`Loaned::merge`].
   pub fn place<T>(&'i self, loaned: Loaned<'t, T>, place: &'i mut impl Place<'i, T>) {
-    place.place(unsafe { LoanedMut::from_raw(loaned.into_raw()) })
+    Place::place(unsafe { LoanedMut::from_raw(loaned.into_raw()) }, place)
   }
 }
 
@@ -266,12 +266,12 @@ impl<'t, T> Loaned<'t, T> {
   }
 }
 
-/// See `Loaned::loan_with`.
+/// See [`Loaned::loan_with`].
 #[doc(hidden)]
 pub struct LoanWith<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> LoanWith<'t, 'i> {
-  /// See `Loaned::loan_with`.
+  /// See [`Loaned::loan_with`].
   pub fn loan<T: Loanable<'i>>(&'i self, value: &'i T) -> &'t T::Target {
     unsafe { &*(&**value as *const _) }
   }

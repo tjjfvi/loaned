@@ -1,23 +1,41 @@
 use crate::*;
 
-/// The trait underlying `Loaned::place` and `LoanedMut::place`.
+/// Abstracts [`Loaned::place`] and [`LoanedMut::place`] for [`take!`] and [`drop!`].
+pub trait Placeable<'t, T>: Sized {
+  #[allow(missing_docs)]
+  fn place(self, place: &'t mut impl Place<'t, T>);
+}
+
+impl<'t, T> Placeable<'t, T> for Loaned<'t, T> {
+  fn place(self, place: &'t mut impl Place<'t, T>) {
+    self.place(place)
+  }
+}
+
+impl<'t, T> Placeable<'t, T> for LoanedMut<'t, T> {
+  fn place(self, place: &'t mut impl Place<'t, T>) {
+    self.place(place)
+  }
+}
+
+/// Types that can be written into with [`Loaned::place`] and [`LoanedMut::place`].
 pub trait Place<'t, T> {
   #[allow(missing_docs)]
-  fn place(&'t mut self, value: LoanedMut<'t, T>);
+  fn place(loaned: LoanedMut<'t, T>, place: &'t mut Self);
 }
 
 impl<'t, T> Place<'t, T> for MaybeUninit<T> {
   #[inline]
-  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
-    *self = loaned.into_raw().into();
+  fn place(loaned: LoanedMut<'t, T>, place: &'t mut Self) {
+    *place = loaned.into_raw().into();
   }
 }
 
 impl<'t, T> Place<'t, T> for T {
   #[inline]
-  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
+  fn place(loaned: LoanedMut<'t, T>, place: &'t mut Self) {
     unsafe {
-      let ptr = self as *mut T;
+      let ptr = place as *mut T;
       ptr::drop_in_place(ptr);
       ptr.cast::<RawLoaned<T>>().write(loaned.into_raw());
     }
@@ -26,9 +44,9 @@ impl<'t, T> Place<'t, T> for T {
 
 impl<'t, T> Place<'t, T> for Option<T> {
   #[inline]
-  fn place(&'t mut self, loaned: LoanedMut<'t, T>) {
+  fn place(loaned: LoanedMut<'t, T>, place: &'t mut Self) {
     unsafe {
-      let ptr = self as *mut Option<T>;
+      let ptr = place as *mut Option<T>;
       ptr::drop_in_place(ptr);
       ptr
         .cast::<MaybeUninit<Option<T>>>()

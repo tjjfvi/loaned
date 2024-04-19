@@ -7,21 +7,21 @@ use core::fmt::Debug;
 ///
 /// Thus, for the duration of `'t`, one cannot access this value.
 ///
-/// One can, however, store this value somewhere with `LoanedMut::place`, which
-/// will ensure that it cannot be used for the duration of `'t`.
+/// One can, however, store this value somewhere with [`LoanedMut::place`],
+/// which will ensure that it cannot be used for the duration of `'t`.
 ///
-/// Taking the value out of a `Loaned` can be done with the `take!` macro, which
-/// will statically ensure that `'t` has expired.
+/// Taking the value out of a `LoanedMut` can be done with the [`take!`] macro,
+/// which will statically ensure that `'t` has expired.
 ///
 /// # Dropping
 ///
-/// The value held by a `Loaned` can only be dropped once `'t` expires. Since
+/// The value held by a `LoanedMut` can only be dropped once `'t` expires. Since
 /// there is no way in the type system to enforce this, nor any way to check
-/// this at runtime, dropping a `Loaned` panics.
+/// this at runtime, dropping a `LoanedMut` panics.
 ///
 /// If leaking is intentional, use a `ManuallyDrop<LoanedMut<'t, T>>`.
 ///
-/// To drop the inner value, use `drop!(loaned)`, which will statically ensure
+/// To drop the inner value, use the [`drop!`] macro, which will statically ensure
 /// that `'t` has expired.
 #[must_use = "dropping a `LoanedMut` panics; use `loaned::drop!` instead"]
 #[repr(transparent)]
@@ -46,17 +46,17 @@ impl<'t, T> LoanedMut<'t, T> {
   }
 
   /// Creates a `LoanedMut` without actually loaning it. If you want to loan it,
-  /// use `LoanedMut::loan`.
+  /// use [`LoanedMut::loan`].
   #[inline(always)]
   pub fn new(value: T) -> Self {
     unsafe { LoanedMut::from_raw(RawLoaned::new(value)) }
   }
 
-  /// Stores the contained value into a given place. See the `Place` trait for
+  /// Stores the contained value into a given place. See the [`Place`] trait for
   /// more.
   #[inline(always)]
   pub fn place(self, place: &'t mut impl Place<'t, T>) {
-    place.place(self)
+    Place::place(self, place)
   }
 
   #[inline(always)]
@@ -135,14 +135,14 @@ impl<'t, T> LoanedMut<'t, T> {
   }
 }
 
-/// See `LoanedMut::merge`.
+/// See [`LoanedMut::merge`].
 #[doc(hidden)]
 pub struct MergeMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> MergeMut<'t, 'i> {
-  /// See `LoanedMut::merge`.
+  /// See [`LoanedMut::merge`].
   pub fn place<T>(&'i self, loaned: LoanedMut<'t, T>, place: &'i mut impl Place<'i, T>) {
-    place.place(unsafe { LoanedMut::from_raw(loaned.into_raw()) })
+    Place::place(unsafe { LoanedMut::from_raw(loaned.into_raw()) }, place)
   }
 }
 
@@ -192,16 +192,16 @@ impl<'t, T> LoanedMut<'t, T> {
   }
 }
 
-/// See `LoanedMut::loan_with`.
+/// See [`LoanedMut::loan_with`].
 #[doc(hidden)]
 pub struct LoanWithMut<'t, 'i>(PhantomData<(&'t mut &'t (), &'i mut &'i ())>);
 
 impl<'t, 'i> LoanWithMut<'t, 'i> {
-  /// See `LoanedMut::loan_with`.
+  /// See [`LoanedMut::loan_with`].
   pub fn loan_mut<T: Loanable<'i> + DerefMut>(&'i self, value: &'i mut T) -> &'t mut T::Target {
     unsafe { &mut *(&mut **value as *mut _) }
   }
-  /// See `LoanedMut::loan_with`.
+  /// See [`LoanedMut::loan_with`].
   pub fn loan<T: Loanable<'i>>(&'i self, value: &'i T) -> &'t T::Target {
     unsafe { &*(&**value as *const _) }
   }

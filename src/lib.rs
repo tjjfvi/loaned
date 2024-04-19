@@ -27,19 +27,36 @@ pub use loaned_mut::*;
 pub use place::*;
 use raw_loaned::*;
 
-/// Takes the value from a `Loaned` or `LoanedMut`, statically ensuring that
+/// Takes the value from a [`Loaned`] or [`LoanedMut`], statically ensuring that
 /// `'t` is expired.
+///
+/// # Example
+/// ```
+/// use loaned::{take, LoanedMut};
+/// let (borrow, loaned) = LoanedMut::loan(Box::new(123));
+/// *borrow = 456;
+/// assert_eq!(take!(loaned), Box::new(456));
+/// ```
 #[macro_export]
 macro_rules! take {
   ($loaned:expr) => {{
     let mut value = ::core::mem::MaybeUninit::uninit();
-    $loaned.place(&mut value);
+    $crate::Placeable::place($loaned, &mut value);
     unsafe { value.assume_init() }
   }};
 }
 
-/// Drops the value from a `Loaned` or `LoanedMut`, statically ensuring that
+/// Drops the value from a [`Loaned`] or [`LoanedMut`], statically ensuring that
 /// `'t` is expired.
+///
+/// # Example
+/// ```
+/// use loaned::{drop, LoanedMut};
+/// let (borrow, loaned) = LoanedMut::loan(Box::new(123));
+/// *borrow *= 2;
+/// assert_eq!(*borrow, 246);
+/// drop!(loaned); // drops the box
+/// ```
 #[macro_export]
 macro_rules! drop {
   ($loaned:expr) => {
