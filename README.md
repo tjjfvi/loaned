@@ -4,6 +4,10 @@
 owning values that have live immutable/mutable borrows, allowing a limited (but
 very expressive) subset of self-referential structures to be expressed.
 
+## Examples
+
+See [`examples/`](./examples/).
+
 ## Safety
 
 `loaned` uses unsafe code, the soundness of which has not been rigorously

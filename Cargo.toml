@@ -13,3 +13,7 @@ edition = "2021"
 default = ["std"]
 std = ["alloc"]
 alloc = []
+
+[[example]]
+name = "tree_building"
+test = true
