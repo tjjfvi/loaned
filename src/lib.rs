@@ -15,6 +15,7 @@ use core::{
   ptr,
 };
 
+mod convert;
 mod loanable;
 mod loaned;
 mod loaned_mut;
@@ -146,5 +147,13 @@ mod test {
     let x: LoanedMut<Vec<Box<_>>> = x.into();
     *r3 = 3;
     assert_eq!(take!(x), vec![Box::new(1), Box::new(2), Box::new(3)]);
+  }
+
+  #[test]
+  fn into_tuple() {
+    let (r, b) = LoanedMut::loan(Box::new(0));
+    let xy = LoanedMut::<(_, _)>::from((b, LoanedMut::new(Box::new(456))));
+    *r = 123;
+    assert_eq!(take!(xy), (Box::new(123), Box::new(456)));
   }
 }

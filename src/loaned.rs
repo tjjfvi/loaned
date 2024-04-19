@@ -220,27 +220,6 @@ impl<'t, 'i> Merge<'t, 'i> {
   }
 }
 
-#[cfg(feature = "alloc")]
-impl<'t, T> From<Box<Loaned<'t, T>>> for Loaned<'t, Box<T>> {
-  fn from(value: Box<Loaned<'t, T>>) -> Self {
-    unsafe { Loaned::new(Box::from_raw(Box::into_raw(value) as *mut _)) }
-  }
-}
-
-#[cfg(feature = "alloc")]
-impl<'t, T> From<Vec<Loaned<'t, T>>> for Loaned<'t, Vec<T>> {
-  fn from(value: Vec<Loaned<'t, T>>) -> Self {
-    unsafe {
-      let mut value = ManuallyDrop::new(value);
-      Loaned::new(Vec::from_raw_parts(
-        value.as_mut_ptr() as *mut _,
-        value.len(),
-        value.capacity(),
-      ))
-    }
-  }
-}
-
 impl<'t, T> Loaned<'t, T> {
   /// Creates a `Loaned` with multiple sub-loans.
   ///

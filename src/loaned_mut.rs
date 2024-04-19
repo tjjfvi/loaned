@@ -146,27 +146,6 @@ impl<'t, 'i> MergeMut<'t, 'i> {
   }
 }
 
-#[cfg(feature = "alloc")]
-impl<'t, T> From<Box<LoanedMut<'t, T>>> for LoanedMut<'t, Box<T>> {
-  fn from(value: Box<LoanedMut<'t, T>>) -> Self {
-    unsafe { LoanedMut::new(Box::from_raw(Box::into_raw(value) as *mut _)) }
-  }
-}
-
-#[cfg(feature = "alloc")]
-impl<'t, T> From<Vec<LoanedMut<'t, T>>> for LoanedMut<'t, Vec<T>> {
-  fn from(value: Vec<LoanedMut<'t, T>>) -> Self {
-    let mut value = ManuallyDrop::new(value);
-    unsafe {
-      LoanedMut::new(Vec::from_raw_parts(
-        value.as_mut_ptr() as *mut _,
-        value.len(),
-        value.capacity(),
-      ))
-    }
-  }
-}
-
 impl<'t, T> LoanedMut<'t, T> {
   /// Creates a `LoanedMut` with multiple sub-loans.
   ///
