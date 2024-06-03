@@ -2,7 +2,7 @@
 name = "loaned"
 version = "0.1.1"
 edition = "2021"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 description = "Safely move values with live inner borrows."
 repository = "https://github.com/tjjfvi/loaned"
 
